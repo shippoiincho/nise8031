@@ -34,13 +34,10 @@
 //#include "hardware/sync.h"
 #include "hardware/pwm.h"
 
-#include "f_util.h"
-#include "ff.h"
+#include "fdc.h"
 #include "hw_config.h"
 
 #include "Z80.h"
-
-#include "fdc.h"
 
 #define RESET_PIN 25
 
@@ -66,6 +63,8 @@ uint8_t *mainrom=(uint8_t *)(0x10070000);
 //uint8_t diskbuffer[0x400];
 //unsigned char fd_filename[16];
 
+volatile uint8_t disk_change=0;
+
 // UI
 
 volatile uint32_t menumode=0;
@@ -86,6 +85,8 @@ uint8_t fdc_find_sector(void);
 const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
 //const uint8_t testfilename2[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
 const uint8_t testfilename2[]="newdisk.d88";
+
+const uint8_t configfile[]="config.txt";
 
 // FatFS configuration
 
@@ -493,11 +494,9 @@ if(gpio_data!=0) {
         case 0xfe:  // PPI C
 
             gpio_data=gpio_get_all()&0xf00000;
-//        printf("[G:%x]",gpio_data);
+
             gpio_data>>=20;
-//    if((gpio_data!=0)) {
-//        printf("[G:%x]",gpio_data);
-//    }
+
             ioport[0xfe]&=0xf0;
             ioport[0xfe]|=gpio_data;
 
@@ -595,8 +594,6 @@ static uint8_t ird_read(void *context,uint16_t address) {
 
     // PC-8031 use Mode 0 and return NOP(00)
 
-//printf("[Here]");
-
     z80_int(context,FALSE);
 
     return 0;
@@ -622,7 +619,6 @@ void init_emulator(void) {
 void main_core1(void) {
 
 //    multicore_lockout_victim_init();
-
     gpio_set_irq_enabled_with_callback(RESET_PIN,GPIO_IRQ_EDGE_RISE,true,z80reset);
 
     // RUN Z80 EMULATION on Core1
@@ -660,9 +656,6 @@ void main_core1(void) {
             z80_int(&cpu,TRUE);
         }
 
-
-//        printf("%04x ",Z80_PC(cpu));
-
     }
 }
 
@@ -679,20 +672,7 @@ int main() {
     stdio_init_all();
 
     gpio_init_mask(0xffffffff);
-//  gpio_set_dir_all_bits(0xf0ff00);
     gpio_set_dir_all_bits(0x0f00ff);
-
-//    gpio_set_pulls(20,false,true);
-//    gpio_set_pulls(21,false,true);
-//    gpio_set_pulls(22,false,true);
-//    gpio_set_pulls(23,false,true);
-
-//    uart_init(uart0, 115200);
-
-//  while(1) {
-//      printf("[%x]",gpio_get_all());
-//      sleep_ms(1000);
-//  }
 
 sleep_ms(1000);
 
@@ -751,14 +731,13 @@ sleep_ms(1000);
     // uart_set_irq_enables(uart0,true,false);
 
     fdc_init();
+    disk_change=0;
 
-    multicore_launch_core1(main_core1);
-   
+    multicore_launch_core1(main_core1);   
 //    multicore_lockout_victim_init();
 
 // TEST TEST TEST
 
-//   fd_drive_status[0]=1;
    fr=f_open(fd_drive[0],testfilename,FA_READ);
 
     if (FR_OK != fr) {
@@ -768,7 +747,7 @@ sleep_ms(1000);
 
     fdc_check(0);
 
-   fr=f_open(fd_drive[1],testfilename2,FA_READ);
+   fr=f_open(fd_drive[1],testfilename2,FA_READ|FA_WRITE);
 
     if (FR_OK != fr) {
         panic("f_open error: %s (%d)\n", FRESULT_str(fr), fr);
@@ -782,39 +761,5 @@ sleep_ms(1000);
     menumode=1;  // Pause emulator
 
     tight_loop_contents(); 
-
-#ifdef USE_FDC
-    lfs_handler=lfs;
-    fdc_init(diskbuffer);
-
-    fd_drive_status[0]=0;
-#endif
-
-    // start emulator
-    
-    while(1) {
-
-        if(menumode==0) { // Emulator mode
-
-        cpu_cycles += z80_run(&cpu,1);
-        cpu_clocks++;
-
-#if 0
-        if(timer_enable_irq) {
-            if((cpu.iff1)&&(cpu.im==2)) {
-                z80_int(&cpu,TRUE);
-            }
-        }
-#endif
-
-        // Wait
-
-        } else { // Menu Mode
-
-
-        }
-
-
-    }
 
 }

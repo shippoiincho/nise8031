@@ -2,9 +2,6 @@
 #include "stdlib.h"
 #include "stdint.h"
 
-#include "f_util.h"
-#include "ff.h"
-
 #include "fdc.h"
 
 uint8_t fdc_command_buffer[10];
@@ -33,9 +30,13 @@ uint8_t fdc_sector_info[16];
 const uint8_t fdc_command_length[]={ 1,9,9,3,2,9,9,2,1,9,2,1,9,6,1,3};
 const uint32_t fdc_sector_count[]={128,256,512,1024,2048,4096};
 
-//lfs_t lfs_handler;
-//lfs_file_t fd_drive[4];
+#ifdef USE_FATFS
 FIL *fd_drive[4];
+#else 
+lfs_t lfs_handler;
+lfs_file_t fd_drive[4];
+#endif
+
 
 uint8_t dummy_buff[256];
 
@@ -162,12 +163,12 @@ printf("[D88S:%x,%x,%x,%x]",fdc_sector_info[0],fdc_sector_info[1],fdc_sector_inf
             f_read(fd_drive[driveno],dummy_buff,1024,&bytes_read);
             sector_ptr+=1024;
         } else if(fdc_sector_info[3]==4) {
-///            lfs_file_seek(&lfs_handler,&fd_drive[driveno],1024,LFS_SEEK_CUR);
+///            lfs_file_seek(&lfs_handler,&fd_drive[driveno],2048,LFS_SEEK_CUR);
             f_read(fd_drive[driveno],dummy_buff,1024,&bytes_read);
             f_read(fd_drive[driveno],dummy_buff,1024,&bytes_read);            
             sector_ptr+=1024;
         } else if(fdc_sector_info[3]==5) {
-///            lfs_file_seek(&lfs_handler,&fd_drive[driveno],1024,LFS_SEEK_CUR);
+///            lfs_file_seek(&lfs_handler,&fd_drive[driveno],4096,LFS_SEEK_CUR);
             f_read(fd_drive[driveno],dummy_buff,1024,&bytes_read);
             f_read(fd_drive[driveno],dummy_buff,1024,&bytes_read);
             f_read(fd_drive[driveno],dummy_buff,1024,&bytes_read);
@@ -220,8 +221,6 @@ void fdc_command_write(uint8_t data) {
 
     if(fdc_phase_flag==1) {
 
-printf("?");
-
         if((fdc_command_buffer[0]&0xf)==5) {
 
             // write command
@@ -253,14 +252,18 @@ printf("?");
 
             } else {
 
+#ifdef USE_FATFS
                 f_write(fd_drive[fdc_command_drive],&data,1,&bytes_write);
+#else
+                lfs_file_write(&lfs_handler,&fd_drive[fdc_command_drive]],&data,1);
+#endif
 
                 fdc_write_count++;
 
                 if(fdc_write_count==fdc_write_sector_size) {   // MUST MODIFY FOR MULTI SECTOR READ
-
+#ifdef USE_FATFS
                     f_sync(fd_drive[fdc_command_drive]);
-
+#endif
                     if(fdc_command_buffer[4]==fdc_command_eot) {
 
                         fdc_phase_flag=2;
@@ -313,6 +316,32 @@ printf("?");
                 }
 
             }
+            fdc_interrupt_flag=1;
+            return;
+
+        } else if((fdc_command_buffer[0]&0xf)==0xd) {
+            // Write ID
+            // Just ignore command
+
+            fdc_write_count++;
+
+            if(fdc_write_count==(fdc_command_buffer[2]*4)) {
+                fdc_phase_flag=2;
+//                        fdc_exec_phase_finish=1;
+
+                    // Result status
+
+                fdc_result_buffer[0]=0x10 | (fdc_command_buffer[1]&7);   // Normal end
+                fdc_result_buffer[1]=2;                                 // Not writable
+                fdc_result_buffer[2]=0;
+
+                fdc_result_buffer[3]=fdc_command_buffer[2];
+                fdc_result_buffer[4]=fdc_command_buffer[3];
+                fdc_result_buffer[5]=fdc_command_buffer[4];
+                fdc_result_buffer[6]=fdc_command_buffer[5];
+
+            }
+
             fdc_interrupt_flag=1;
             return;
 
@@ -543,17 +572,10 @@ printf("?");
 
             case 0xd: // WRITE ID (Format)
 
-                fdc_phase_flag=2;
-//                        fdc_exec_phase_finish=1;
-
-                // Result status
-
-                fdc_command_read_length=7;
-                fdc_command_read_index=0;
-
-                fdc_result_buffer[0]=0x40 | fdc_command_drive;  // Abort
-                fdc_result_buffer[1]=0x2;                       // Write Protected
-                fdc_result_buffer[2]=0;
+                fdc_phase_flag=1;
+                fdc_interrupt_flag=1;
+                fdc_write_count=0;
+                fdc_sector_not_found=0;
 
                 return;
 
@@ -611,8 +633,12 @@ uint8_t fdc_command_read() {
         // READ COMMAND
         if((fdc_command_buffer[0]&0xf)==0x6) {
 
+#ifdef USE_FATFS
             f_read(fd_drive[fdc_command_drive],&data,1,&bytes_read);
-            
+#else 
+            lfs_file_read(&lfs_handler,&fd_drive[fdc_command_drive]],&data,1);
+#endif
+
 //        printf("[%02x]",data);
 
             fdc_read_count++;
@@ -720,13 +746,20 @@ void fdc_check(uint8_t driveno) {
     uint8_t flags;
     UINT bytes_read;
 
-//  if(lfs_file_seek(&lfs_handler,&fd_drive[driveno],0x1a,LFS_SEEK_SET)) {
+#ifdef USE_FATFS
     if(f_lseek(fd_drive[driveno],0x1a)!=FR_OK) {
+#else
+    if(lfs_file_seek(&lfs_handler,&fd_drive[driveno],0x1a,LFS_SEEK_SET)) {
+#endif
         fd_drive_status[driveno]=0;
     }
 
-//    lfs_file_read(&lfs_handler,&fd_drive[driveno],&flags,1);
+#ifdef USE_FATFS
     f_read(fd_drive[driveno],&flags,1,&bytes_read);
+#else
+    lfs_file_read(&lfs_handler,&fd_drive[driveno],&flags,1);
+#endif
+
 
 printf("[D88:%d]",flags);
 
