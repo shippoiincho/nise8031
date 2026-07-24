@@ -56,11 +56,3 @@ ROM を書き込んだのちに `prebuild` ディレクトリ以下にある uf2
 
 
 ---
-# Gallary
-
-- パソピア
-![game 1](pictures/screenshot01.jpg)
-![game 2](pictures/screenshot02.jpg)
-
-- パソピア7
-![PASOPIA7 Demo](pictures/screenshot03.png)
