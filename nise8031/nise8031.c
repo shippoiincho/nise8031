@@ -63,7 +63,7 @@ uint8_t *mainrom=(uint8_t *)(0x10070000);
 //uint8_t diskbuffer[0x400];
 //unsigned char fd_filename[16];
 
-volatile uint8_t disk_change=0;
+
 
 // UI
 
@@ -71,14 +71,16 @@ volatile uint32_t menumode=0;
 uint32_t menuitem=0;
 
 
-unsigned char filename[16];
-unsigned char tape_filename[16];
-unsigned char rampac_filename[16];
+//unsigned char filename[16];
+//unsigned char tape_filename[16];
+//unsigned char rampac_filename[16];
 
-static inline unsigned char tohex(int);
-static inline unsigned char fromhex(int);
-static inline void video_print(uint8_t *);
-uint8_t fdc_find_sector(void);
+//static inline unsigned char tohex(int);
+//static inline unsigned char fromhex(int);
+//static inline void video_print(uint8_t *);
+//uint8_t fdc_find_sector(void);
+
+volatile uint8_t disk_change=0;
 
 //
 
@@ -86,7 +88,7 @@ const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001m
 //const uint8_t testfilename2[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
 const uint8_t testfilename2[]="newdisk.d88";
 
-const uint8_t configfile[]="config.txt";
+//const uint8_t configfile[]="config.txt";
 
 // FatFS configuration
 
@@ -619,6 +621,7 @@ void init_emulator(void) {
 void main_core1(void) {
 
 //    multicore_lockout_victim_init();
+
     gpio_set_irq_enabled_with_callback(RESET_PIN,GPIO_IRQ_EDGE_RISE,true,z80reset);
 
     // RUN Z80 EMULATION on Core1
@@ -673,6 +676,9 @@ int main() {
 
     gpio_init_mask(0xffffffff);
     gpio_set_dir_all_bits(0x0f00ff);
+
+    fdc_init();
+//    disk_change=0;
 
 sleep_ms(1000);
 
@@ -730,8 +736,7 @@ sleep_ms(1000);
     // irq_set_enabled(UART0_IRQ,true);
     // uart_set_irq_enables(uart0,true,false);
 
-    fdc_init();
-    disk_change=0;
+
 
     multicore_launch_core1(main_core1);   
 //    multicore_lockout_victim_init();
@@ -760,6 +765,8 @@ sleep_ms(1000);
 
     menumode=1;  // Pause emulator
 
-    tight_loop_contents(); 
+    while(1){
+          tight_loop_contents(); 
+    }
 
 }

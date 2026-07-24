@@ -1,6 +1,6 @@
-#include "stdio.h"
-#include "stdlib.h"
-#include "stdint.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 #include "fdc.h"
 
@@ -38,7 +38,7 @@ lfs_file_t fd_drive[4];
 #endif
 
 
-uint8_t dummy_buff[256];
+uint8_t dummy_buff[1024];
 
 uint8_t fd_drive_status[4];
 
@@ -323,16 +323,21 @@ void fdc_command_write(uint8_t data) {
             // Write ID
             // Just ignore command
 
+printf("[ID:%02x]",data);
+
             fdc_write_count++;
 
-            if(fdc_write_count==(fdc_command_buffer[2]*4)) {
+            if(fdc_write_count==(fdc_command_buffer[3]*4)) {
                 fdc_phase_flag=2;
 //                        fdc_exec_phase_finish=1;
 
                     // Result status
 
-                fdc_result_buffer[0]=0x10 | (fdc_command_buffer[1]&7);   // Normal end
-                fdc_result_buffer[1]=2;                                 // Not writable
+                fdc_command_read_length=7;
+                fdc_command_read_index=0;
+
+                fdc_result_buffer[0]=0x00 | (fdc_command_buffer[1]&7);   // Normal end
+                fdc_result_buffer[1]=0;                                 // Not writable
                 fdc_result_buffer[2]=0;
 
                 fdc_result_buffer[3]=fdc_command_buffer[2];
@@ -401,8 +406,6 @@ void fdc_command_write(uint8_t data) {
                     }
 
                     fdc_result_buffer[0]|=0x20; // READY
-
-// MAY BE MODIFY for single side media
                     fdc_result_buffer[0]|=0x8;  // TWO SIDE 
 
                 } else {
@@ -415,7 +418,6 @@ void fdc_command_write(uint8_t data) {
                 return;            
 
             case 0x5: // WRITE DATA 
-            // Return Write Protected
 
                 fdc_command_eot=fdc_command_buffer[6];
                 fdc_write_sector_size=fdc_sector_count[fdc_command_buffer[5]];
@@ -455,9 +457,6 @@ void fdc_command_write(uint8_t data) {
                 }
 
                 return;
-
-
-
 
 #if 0
             if(fdc_dma_flag) {
