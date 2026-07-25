@@ -84,8 +84,12 @@ volatile uint8_t disk_change=0;
 
 //
 
+const uint8_t romfilename[]="disk.rom";
+
 const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
 //const uint8_t testfilename2[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
+
+
 const uint8_t testfilename2[]="newdisk.d88";
 
 //const uint8_t configfile[]="config.txt";
@@ -460,8 +464,9 @@ static uint8_t io_read(void *context, uint16_t address)
     switch(address&0xff) {
 
         case 0xf8:  // TC
-
-printf("[TC]");
+#ifdef USE_DEBUG
+        printf("[TC]");
+#endif
         fdc_tc();
 
             return 0xff;
@@ -478,15 +483,14 @@ printf("[TC]");
 
             gpio_data=gpio_get_all();
 
-// printf("[A:%x]",gpio_data);
-
             gpio_data&=0xff00;
             gpio_data>>=8;
 
-if(gpio_data!=0) {
-    printf("[PR:%02x]",gpio_data);
-}
-
+#ifdef USE_DEBUG
+            if(gpio_data!=0) {
+                printf("[PR:%02x]",gpio_data);
+            }
+#endif
             return gpio_data;
 
         case 0xfd:  // PPI B
@@ -522,14 +526,15 @@ static void io_write(void *context, uint16_t address, uint8_t data)
 
     uint8_t b;
 
+#ifdef USE_DEBUG
     if((address&0xff)!=0xff) {
-//    printf("[IOW %02x:%02x]",address&0xff,data);
+    printf("[IOW %02x:%02x]",address&0xff,data);
     }
+#endif
 
     // if((address&0xf0)==0xf0) {
     // printf("[IOW:%04x:%02x:%02x->%02x]",Z80_PC(cpu),address&0xff,ioport[address&0xff],data);
     // }
-
 
     switch(address&0xff) {
 
@@ -549,9 +554,9 @@ static void io_write(void *context, uint16_t address, uint8_t data)
         case 0xfd:  // PPI B
 
             gpio_put_masked(0xff,data);
-
-printf("{%02x}",data);
-
+#ifdef USE_DEBUG
+            printf("{%02x}",data);
+#endif
             ioport[0xfd]=data;
             return;
 

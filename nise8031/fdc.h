@@ -1,5 +1,6 @@
 // USE FatFS or LittleFS
 #define USE_FATFS
+//#define FDC_DEBUG
 
 #ifdef USE_FATFS
 #include "f_util.h"

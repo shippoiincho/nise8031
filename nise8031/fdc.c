@@ -89,9 +89,9 @@ uint8_t fdc_status(void) {
     }
 
     fdc_status|=0x80;
-
+#ifdef FDC_DEBUG
     printf("[FS:%x]",fdc_status);
-
+#endif
     return fdc_status;
 
 }
@@ -114,23 +114,23 @@ int32_t fdc_find_sector(uint8_t driveno,uint8_t track,uint8_t head,uint8_t secto
 //        lfs_file_read(&lfs_handler,&fd_drive[driveno],&sector_ptr,4);
         f_read(fd_drive[driveno],&sector_ptr,4,&bytes_read);
     }
-
+#ifdef FDC_DEBUG
 printf("[D88T:%d,%x]",driveno,sector_ptr);
-
+#endif
 ///    lfs_file_seek(&lfs_handler,&fd_drive[driveno],sector_ptr,LFS_SEEK_SET);
 
         f_lseek(fd_drive[driveno],sector_ptr);    
-
+#ifdef FDC_DEBUG
 printf("[D88SF:%x,%x,%x]",track,head,sector);
-
+#endif
 
     while(1) {
         sector_ptr+=0x10;
 ///        lfs_file_read(&lfs_handler,&fd_drive[driveno],sector_info,16);
         f_read(fd_drive[driveno],fdc_sector_info,16,&bytes_read);
-
+#ifdef FDC_DEBUG
 printf("[D88S:%x,%x,%x,%x]",fdc_sector_info[0],fdc_sector_info[1],fdc_sector_info[2],fdc_sector_info[3]);
-
+#endif
         if((fdc_sector_info[2]==sector)&&(fdc_sector_info[1]==head)&&(fdc_sector_info[0]==track)) {
             // if(sector_info[3]==0) {
             //     fd_sector_size=128;
@@ -322,9 +322,9 @@ void fdc_command_write(uint8_t data) {
         } else if((fdc_command_buffer[0]&0xf)==0xd) {
             // Write ID
             // Just ignore command
-
-printf("[ID:%02x]",data);
-
+#ifdef FDC_DEBUG
+            printf("[ID:%02x]",data);
+#endif
             fdc_write_count++;
 
             if(fdc_write_count==(fdc_command_buffer[3]*4)) {
@@ -361,9 +361,9 @@ printf("[ID:%02x]",data);
         fdc_command_write_index=0;
 
         // execute command
-
+#ifdef FDC_DEBUG
         printf("[FDC:%x]\n",fdc_command_buffer[0]&0xf);
-
+#endif
         switch(fdc_command_buffer[0]&0xf) {
 
             case 0x3: // SPECIFY
@@ -422,9 +422,9 @@ printf("[ID:%02x]",data);
                 fdc_command_eot=fdc_command_buffer[6];
                 fdc_write_sector_size=fdc_sector_count[fdc_command_buffer[5]];
 //                fdc_dma_offset=0;
-
+#ifdef FDC_DEBUG
             printf("[EOT:%d]",fdc_command_eot);
-
+#endif
                 fdc_write_ptr=fdc_find_sector(fdc_command_buffer[1]&3,fdc_command_buffer[2],fdc_command_buffer[3],fdc_command_buffer[4],fdc_command_buffer[5]);
 
                 if(fdc_read_ptr==-1) {
@@ -490,9 +490,9 @@ printf("[ID:%02x]",data);
                 fdc_command_eot=fdc_command_buffer[6];
                 fdc_read_sector_size=fdc_sector_count[fdc_command_buffer[5]];
 //                fdc_dma_offset=0;
-
+#ifdef FDC_DEBUG
             printf("[EOT:%d]",fdc_command_eot);
-
+#endif
                 fdc_read_ptr=fdc_find_sector(fdc_command_buffer[1]&3,fdc_command_buffer[2],fdc_command_buffer[3],fdc_command_buffer[4],fdc_command_buffer[5]);
 
                 if(fdc_read_ptr==-1) {
@@ -759,8 +759,9 @@ void fdc_check(uint8_t driveno) {
     lfs_file_read(&lfs_handler,&fd_drive[driveno],&flags,1);
 #endif
 
-
+#ifdef FDC_DEBUG
 printf("[D88:%d]",flags);
+#endif
 
     if(flags==0) {
         fd_drive_status[driveno]=1;
