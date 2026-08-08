@@ -18,7 +18,7 @@
 // GP46: Access LED1 
 // GP47: Access LED2
 
-#define USE_DEBUG
+// #define USE_DEBUG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,8 +94,8 @@ const uint8_t romfilename[]="disk.rom";
 //const uint8_t testfilename2[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
 
 //const uint8_t testfilename[]="pc-6601sr-utility_scp.d88";   // 2DD media for 1DD (Type 0x10)
-//const uint8_t testfilename[]="FM Music Exercises (SR).d88"; // 1DD (Type 0x40)
-const uint8_t testfilename[]="[Utility] PC-6601 Utility Disk.d88"; // 2D media for 1D (Type 0x00)
+const uint8_t testfilename[]="FM Music Exercises (SR).d88"; // 1DD (Type 0x40)
+//const uint8_t testfilename[]="[Utility] PC-6601 Utility Disk.d88"; // 2D media for 1D (Type 0x00)
 
 
 const uint8_t testfilename2[]="newdisk.d88";
@@ -613,9 +613,10 @@ static inline void io_write(void *context, uint16_t address, uint8_t data)
                 }
 
                 gpio_put_masked(0xf0000,(((uint32_t)(ioport[0xfe])&0xf0)<<12));
-
+#ifdef DEBUG
         printf("[SW:%02x]",ioport[0xfe]);
 //                printf("[%x]",gpio_get_all());
+#endif            
             }
 
             return;
@@ -654,6 +655,8 @@ void init_emulator(void) {
 
 void main_core1(void) {
 
+    uint32_t    gpio_data;
+
 //    multicore_lockout_victim_init();
 
     gpio_set_irq_enabled_with_callback(RESET_PIN,GPIO_IRQ_EDGE_RISE,true,z80reset);
@@ -683,13 +686,12 @@ void main_core1(void) {
 
         if(fdu_init) {
 
-            gpio_put_masked(0xff,0);
-            gpio_put_masked(0xf0000,0);
-
-            sleep_ms(1000);
             // Wait PC is ready
-            uint32_t    gpio_data;
+
             while(1) {
+                gpio_put_masked(0xf00ff,0);
+                sleep_ms(10);
+        
                 gpio_data=gpio_get_all()&0xf00000;
                 if(gpio_data!=0xf00000) {
                     fdu_init=0;    

@@ -114,9 +114,14 @@ int32_t fdc_find_sector(uint8_t driveno,uint8_t track,uint8_t head,uint8_t secto
     // Convert 1DD track/head number to 2D (for PC-6001mk2SR)
 
     if((fd_media_type[driveno]==0x50)||(fd_media_type[driveno]==0x40)) { 
-        track_conv=track/2;
+        track_conv=track*2;
         if(head) { track_conv++; }
         head_conv=0;
+
+#ifdef FDC_DEBUG
+    printf("[D88ss:%x-%x,%x-%x,%x]",track,track_conv,head,head_conv,sector);
+#endif
+
     } else {
         track_conv = track;
         head_conv = head;
@@ -126,13 +131,13 @@ int32_t fdc_find_sector(uint8_t driveno,uint8_t track,uint8_t head,uint8_t secto
 
     if((fd_media_type[driveno]==0x30)||(fd_media_type[driveno]==0x40)) {
         // for Single side D88 file
-        for(int i=0;i<=track;i++) {
+        for(int i=0;i<=track_conv;i++) {
 //        lfs_file_read(&lfs_handler,&fd_drive[driveno],&sector_ptr,4);
             f_read(fd_drive[driveno],&sector_ptr,4,&bytes_read);
         }
     } else {
     // for Double side D88 file
-        for(int i=0;i<=track*2;i++) {
+        for(int i=0;i<=track_conv*2;i++) {
 //        lfs_file_read(&lfs_handler,&fd_drive[driveno],&sector_ptr,4);
             f_read(fd_drive[driveno],&sector_ptr,4,&bytes_read);
         }
