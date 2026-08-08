@@ -12,12 +12,13 @@
 // GP32: SD Detect
 // GP40: LCD SCK
 // GP41: LCD SDA
-// GP44: Rotary encoder
+// GP42: Rotary encoder SW
+// GP44: Rotary encoder 
 // GP45: Rotary encoder
 // GP46: Access LED1 
 // GP47: Access LED2
 
-//#define USE_DEBUG
+#define USE_DEBUG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,11 +34,14 @@
 //#include "hardware/flash.h"
 //#include "hardware/sync.h"
 #include "hardware/pwm.h"
+#include "hardware/i2c.h"
 
 #include "fdc.h"
 #include "hw_config.h"
 
 #include "Z80.h"
+
+#include "lcd.h"
 
 #define RESET_PIN 25
 
@@ -63,7 +67,7 @@ uint8_t *mainrom=(uint8_t *)(0x10070000);
 //uint8_t diskbuffer[0x400];
 //unsigned char fd_filename[16];
 
-
+volatile uint8_t fdu_init=0;
 
 // UI
 
@@ -86,8 +90,12 @@ volatile uint8_t disk_change=0;
 
 const uint8_t romfilename[]="disk.rom";
 
-const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
+//const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
 //const uint8_t testfilename2[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
+
+//const uint8_t testfilename[]="pc-6601sr-utility_scp.d88";   // 2DD media for 1DD (Type 0x10)
+//const uint8_t testfilename[]="FM Music Exercises (SR).d88"; // 1DD (Type 0x40)
+const uint8_t testfilename[]="[Utility] PC-6601 Utility Disk.d88"; // 2D media for 1D (Type 0x00)
 
 
 const uint8_t testfilename2[]="newdisk.d88";
@@ -147,10 +155,25 @@ void __not_in_flash_func(z80reset)(uint gpio,uint32_t event) {
 //    memset(mainram,0,0x10000);
 //    memcpy(mainram,mainrom,0x2000);
 
+    fdu_init=1;
+
     return;
 
 }
 
+void display_init(void) {
+
+    i2c_init(i2c_default, 100 * 1000);
+    gpio_set_function(40, GPIO_FUNC_I2C);
+    gpio_set_function(41, GPIO_FUNC_I2C);
+    gpio_pull_up(40);
+    gpio_pull_up(41);
+
+    lcd_init();
+
+    return;
+
+}
 
 #if 0
 static inline void video_print(uint8_t *string) {
@@ -425,7 +448,7 @@ int enter_filename() {
 }
 #endif
 
-static uint8_t mem_read(void *context,uint16_t address)
+static inline uint8_t mem_read(void *context,uint16_t address)
 {
 
     if(address<0x8000) {
@@ -436,7 +459,7 @@ static uint8_t mem_read(void *context,uint16_t address)
 
 }
 
-static void mem_write(void *context,uint16_t address, uint8_t data)
+static inline void mem_write(void *context,uint16_t address, uint8_t data)
 {
 
     if((address>=0x4000)&&(address<0x8000)) {
@@ -447,7 +470,7 @@ static void mem_write(void *context,uint16_t address, uint8_t data)
 
 }
 
-static uint8_t io_read(void *context, uint16_t address)
+static inline uint8_t io_read(void *context, uint16_t address)
 {
     uint8_t data = ioport[address&0xff];
     uint8_t b;
@@ -501,12 +524,18 @@ static uint8_t io_read(void *context, uint16_t address)
 
             gpio_data=gpio_get_all()&0xf00000;
 
+//        printf("[%x]",gpio_data);
+            
             gpio_data>>=20;
 
             ioport[0xfe]&=0xf0;
             ioport[0xfe]|=gpio_data;
 
-//        printf("[SR:%02x]",ioport[0xfe]);
+#if DEBUG            
+if((ioport[0xfe]&0xf)!=0) {
+        printf("[SR:%02x]",ioport[0xfe]);
+}
+#endif
 
             return ioport[0xfe];
 
@@ -521,7 +550,7 @@ static uint8_t io_read(void *context, uint16_t address)
 //   return 0xff;
 }
 
-static void io_write(void *context, uint16_t address, uint8_t data)
+static inline void io_write(void *context, uint16_t address, uint8_t data)
 {
 
     uint8_t b;
@@ -562,7 +591,7 @@ static void io_write(void *context, uint16_t address, uint8_t data)
 
         case 0xfe:  // PPI C
 
-            gpio_put_masked(0xf0000,data<<16);
+            gpio_put_masked(0xf0000,(data&0xf0)<<12);
             ioport[0xfe]&=0xf;
             ioport[0xfe]|=data&0xf0;
 
@@ -580,9 +609,9 @@ static void io_write(void *context, uint16_t address, uint8_t data)
                     ioport[0xfe]&= ~(1<<b);
                 }
 
-                gpio_put_masked(0x0f0000,((uint32_t)(ioport[0xfe]))<<12);
+                gpio_put_masked(0xf0000,(((uint32_t)(ioport[0xfe])&0xf0)<<12));
 
-//        printf("[SW:%02x]",ioport[0xfe]);
+        printf("[SW:%02x]",ioport[0xfe]);
 //                printf("[%x]",gpio_get_all());
             }
 
@@ -610,8 +639,6 @@ static uint8_t ird_read(void *context,uint16_t address) {
 #if 0
 static void reti_callback(void *context) {
 
-
-
 }
 #endif
 
@@ -620,7 +647,6 @@ void init_emulator(void) {
     // COPY DISK ROM to RAM
     // Maximum 8Kib
     memcpy(mainram,mainrom,0x2000);
-
 }
 
 void main_core1(void) {
@@ -632,6 +658,8 @@ void main_core1(void) {
     // RUN Z80 EMULATION on Core1
 
     init_emulator();
+
+    fdu_init=1;
 
     cpu.read = mem_read;
     cpu.write = mem_write;
@@ -651,6 +679,15 @@ void main_core1(void) {
 
 
     while(1) {
+
+        if(fdu_init) {
+            // Wait PC is ready
+            uint32_t    gpio_data;
+            while(1) {
+                gpio_data=gpio_get_all()&0xf00000;
+                if(gpio_data!=0xf00000) break;
+            }
+        }
 
         cpu_cycles += z80_run(&cpu,1);
         cpu_clocks++;
@@ -681,6 +718,16 @@ int main() {
 
     gpio_init_mask(0xffffffff);
     gpio_set_dir_all_bits(0x0f00ff);
+
+//    display_init();
+//    lcd_string("Nise8031 test");
+
+    // gpio_init(46);
+    // gpio_init(47);
+    // gpio_set_dir(46,true);
+    // gpio_set_dir(47,true);
+    // gpio_put(46,true);
+    // gpio_put(47,true);
 
     fdc_init();
 //    disk_change=0;
@@ -765,6 +812,12 @@ sleep_ms(1000);
     }
 
     fdc_check(1);
+
+
+#ifdef DEBUG
+    printf("[Drive1:%x,%x]",fd_drive_status[0],fd_media_type[0]);
+    printf("[Drive2:%x,%x]",fd_drive_status[1],fd_media_type[1]);
+#endif
 
     sleep_ms(1);
 

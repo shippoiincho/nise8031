@@ -39,8 +39,8 @@ lfs_file_t fd_drive[4];
 
 
 uint8_t dummy_buff[1024];
-
 uint8_t fd_drive_status[4];
+uint8_t fd_media_type[4];   // 0x00:2D,0x10:2DD,0x20:2HD,0x30:1D,0x40:1DD,0x50:1DD for 2DD file
 
 // D88 track info
 
@@ -105,15 +105,42 @@ int32_t fdc_find_sector(uint8_t driveno,uint8_t track,uint8_t head,uint8_t secto
     uint32_t sector_ptr;
     UINT bytes_read;
 
+    uint8_t track_conv;
+    uint8_t head_conv;
+
 //    lfs_file_seek(&lfs_handler,&fd_drive[driveno],0x20,LFS_SEEK_SET);
     f_lseek(fd_drive[driveno],0x20);
 
+    // Convert 1DD track/head number to 2D (for PC-6001mk2SR)
+
+    if((fd_media_type[driveno]==0x50)||(fd_media_type[driveno]==0x40)) { 
+        track_conv=track/2;
+        if(head) { track_conv++; }
+        head_conv=0;
+    } else {
+        track_conv = track;
+        head_conv = head;
+    }
+
     // find track top
 
-    for(int i=0;i<=track*2;i++) {
+    if((fd_media_type[driveno]==0x30)||(fd_media_type[driveno]==0x40)) {
+        // for Single side D88 file
+        for(int i=0;i<=track;i++) {
 //        lfs_file_read(&lfs_handler,&fd_drive[driveno],&sector_ptr,4);
-        f_read(fd_drive[driveno],&sector_ptr,4,&bytes_read);
+            f_read(fd_drive[driveno],&sector_ptr,4,&bytes_read);
+        }
+    } else {
+    // for Double side D88 file
+        for(int i=0;i<=track*2;i++) {
+//        lfs_file_read(&lfs_handler,&fd_drive[driveno],&sector_ptr,4);
+            f_read(fd_drive[driveno],&sector_ptr,4,&bytes_read);
+        }
     }
+
+
+
+
 #ifdef FDC_DEBUG
 printf("[D88T:%d,%x]",driveno,sector_ptr);
 #endif
@@ -131,7 +158,7 @@ printf("[D88SF:%x,%x,%x]",track,head,sector);
 #ifdef FDC_DEBUG
 printf("[D88S:%x,%x,%x,%x]",fdc_sector_info[0],fdc_sector_info[1],fdc_sector_info[2],fdc_sector_info[3]);
 #endif
-        if((fdc_sector_info[2]==sector)&&(fdc_sector_info[1]==head)&&(fdc_sector_info[0]==track)) {
+        if((fdc_sector_info[2]==sector)&&(fdc_sector_info[1]==head_conv)&&(fdc_sector_info[0]==track_conv)) {
             // if(sector_info[3]==0) {
             //     fd_sector_size=128;
             // } else if(sector_info[3]==1) {
@@ -744,6 +771,7 @@ void fdc_check(uint8_t driveno) {
 
     uint8_t flags;
     UINT bytes_read;
+    uint32_t track_info;
 
 #ifdef USE_FATFS
     if(f_lseek(fd_drive[driveno],0x1a)!=FR_OK) {
@@ -768,6 +796,41 @@ printf("[D88:%d]",flags);
     } else {
         fd_drive_status[driveno]=3;        
     }
+
+#ifdef USE_FATFS
+    f_read(fd_drive[driveno],&flags,1,&bytes_read);
+#else
+    lfs_file_read(&lfs_handler,&fd_drive[driveno],&flags,1);
+#endif
+
+#ifdef FDC_DEBUG
+printf("[Media:%d]",flags);
+#endif
+
+    fd_media_type[driveno]=flags;
+
+    if(flags==0x10) {
+        // 1DD check for 2DD Media
+        // Read track 1 (CHS=0/1/1)
+
+#ifdef USE_FATFS
+    f_lseek(fd_drive[driveno],0x24);
+    f_read(fd_drive[driveno],&track_info,4,&bytes_read);
+
+#else
+    lfs_file_seek(&lfs_handler,&fd_drive[driveno],0x24,LFS_SEEK_SET);)
+    lfs_file_read(&lfs_handler,&fd_drive[driveno],&track_info,4);        
+#endif
+
+        if(track_info==0) {
+            fd_media_type[driveno]=0x50;
+        }
+
+    }
+
+
+
+    return;
 
 }
 

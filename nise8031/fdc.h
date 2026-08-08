@@ -1,6 +1,6 @@
 // USE FatFS or LittleFS
 #define USE_FATFS
-//#define FDC_DEBUG
+#define FDC_DEBUG
 
 #ifdef USE_FATFS
 #include "f_util.h"
@@ -33,3 +33,4 @@ extern uint8_t fd_drive_status[4];
 extern uint32_t fdc_dma_datasize;
 extern uint8_t fdc_interrupt_flag;
 extern uint8_t fdc_tc_flag;
+extern uint8_t fd_media_type[4];
