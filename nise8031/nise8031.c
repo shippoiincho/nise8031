@@ -155,6 +155,9 @@ void __not_in_flash_func(z80reset)(uint gpio,uint32_t event) {
 //    memset(mainram,0,0x10000);
 //    memcpy(mainram,mainrom,0x2000);
 
+//    gpio_put_masked(0xff,0);
+//    gpio_put_masked(0xf0000,0);
+
     fdu_init=1;
 
     return;
@@ -676,16 +679,22 @@ void main_core1(void) {
     cpu_hsync=0;
     cpu_cycles=0;
 
-
-
     while(1) {
 
         if(fdu_init) {
+
+            gpio_put_masked(0xff,0);
+            gpio_put_masked(0xf0000,0);
+
+            sleep_ms(1000);
             // Wait PC is ready
             uint32_t    gpio_data;
             while(1) {
                 gpio_data=gpio_get_all()&0xf00000;
-                if(gpio_data!=0xf00000) break;
+                if(gpio_data!=0xf00000) {
+                    fdu_init=0;    
+                    break;
+                }
             }
         }
 
