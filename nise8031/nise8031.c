@@ -184,7 +184,7 @@ void display_file(void) {
 
     lcd_clear();
 
-    snprintf(string,17,"%c%15s",0x20,testfilename);
+    snprintf(string,17,"%c%15s",'>',testfilename);
 
     lcd_set_cursor(0,0);
     lcd_string(string);
@@ -747,7 +747,8 @@ int main() {
     FRESULT fr = f_mount(&fs, "", 1);
     if (FR_OK != fr) {
         lcd_clear();
-        lcd_string(" Can not mount SD card.");
+        lcd_set_cursor(0,0);
+        lcd_string("Can not mount SD card");
         panic("f_mount error: %s (%d)\n", FRESULT_str(fr), fr);
 
 
@@ -761,7 +762,8 @@ int main() {
 
     if (FR_OK != fr) {
         lcd_clear();
-        lcd_string(" Can not read rom file.");
+        lcd_set_cursor(0,0);
+        lcd_string("Can not read rom file");
         panic("f_open error: %s (%d)\n", FRESULT_str(fr), fr);
         return -1;
     }
