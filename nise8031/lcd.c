@@ -40,7 +40,7 @@ const int LCD_BACKLIGHT = 0x08;
 
 const int LCD_ENABLE_BIT = 0x04;
 
-static int addr = 0x7c;
+static int addr = 0x3e;
 
 // Modes for lcd_send_byte
 const int LCD_CHARACTER = 0x40;

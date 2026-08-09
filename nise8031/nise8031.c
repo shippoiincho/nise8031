@@ -10,8 +10,8 @@
 // GP30: SD DAT2
 // GP31: SD DAT3
 // GP32: SD Detect
-// GP40: LCD SCK
-// GP41: LCD SDA
+// GP40: LCD SDA
+// GP41: LCD SCL
 // GP42: Rotary encoder SW
 // GP44: Rotary encoder 
 // GP45: Rotary encoder
@@ -90,13 +90,12 @@ volatile uint8_t disk_change=0;
 
 const uint8_t romfilename[]="disk.rom";
 
-//const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
+const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
 //const uint8_t testfilename2[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
 
 //const uint8_t testfilename[]="pc-6601sr-utility_scp.d88";   // 2DD media for 1DD (Type 0x10)
-const uint8_t testfilename[]="FM Music Exercises (SR).d88"; // 1DD (Type 0x40)
+//const uint8_t testfilename[]="FM Music Exercises (SR).d88"; // 1DD (Type 0x40)
 //const uint8_t testfilename[]="[Utility] PC-6601 Utility Disk.d88"; // 2D media for 1D (Type 0x00)
-
 
 const uint8_t testfilename2[]="newdisk.d88";
 
@@ -105,6 +104,7 @@ const uint8_t testfilename2[]="newdisk.d88";
 // FatFS configuration
 
     FATFS fs;
+    FIL fdtmp;
 
 /* SDIO Interface */
 static sd_sdio_if_t sdio_if = {
@@ -178,33 +178,27 @@ void display_init(void) {
 
 }
 
-#if 0
-static inline void video_print(uint8_t *string) {
+void display_file(void) {
 
-    int len;
-    uint8_t fdata;
-    uint32_t vramindex;
+    unsigned char string[32];
 
-    len = strlen(string);
+    lcd_clear();
 
-    for (int i = 0; i < len; i++) {
+    snprintf(string,17,"%c%15s",0x20,testfilename);
 
-        uint8_t ch=string[i];
-        menuram[cursor_x+cursor_y*VGA_CHARS_X]=ch;
-        menuram[cursor_x+cursor_y*VGA_CHARS_X+0x800]=fbcolor;
+    lcd_set_cursor(0,0);
+    lcd_string(string);
 
-        cursor_x++;
-        if (cursor_x >= VGA_CHARS_X) {
-            cursor_x = 0;
-            cursor_y++;
-            if (cursor_y >= VGA_CHARS_Y) {
-                video_scroll();
-                cursor_y = VGA_CHARS_Y - 1;
-            }
-        }
-    }
+    snprintf(string,17,"%c%15s",0x20,testfilename2);
+
+    lcd_set_cursor(1,0);
+    lcd_string(string);
+
+    return;
 
 }
+
+#if 0
 
 void draw_menu(void) {
 
@@ -650,7 +644,7 @@ void init_emulator(void) {
     //  setup emulator 
     // COPY DISK ROM to RAM
     // Maximum 8Kib
-    memcpy(mainram,mainrom,0x2000);
+    //    memcpy(mainram,mainrom,0x2000);
 }
 
 void main_core1(void) {
@@ -720,6 +714,7 @@ int main() {
     uint32_t menuprint=0;
     uint32_t filelist=0;
     uint32_t subcpu_wait;
+    UINT bytes_read;
 
     static uint32_t hsync_wait,vsync_wait;
 
@@ -730,20 +725,19 @@ int main() {
     gpio_init_mask(0xffffffff);
     gpio_set_dir_all_bits(0x0f00ff);
 
-//    display_init();
-//    lcd_string("Nise8031 test");
+    display_init();
 
-    // gpio_init(46);
-    // gpio_init(47);
-    // gpio_set_dir(46,true);
-    // gpio_set_dir(47,true);
-    // gpio_put(46,true);
-    // gpio_put(47,true);
+    gpio_init(46);
+    gpio_init(47);
+    gpio_set_dir(46,true);
+    gpio_set_dir(47,true);
+    gpio_put(46,false);
+    gpio_put(47,false);
 
     fdc_init();
 //    disk_change=0;
 
-sleep_ms(1000);
+//sleep_ms(1000);
 
 //  Initialize FatFs
 
@@ -752,33 +746,31 @@ sleep_ms(1000);
 
     FRESULT fr = f_mount(&fs, "", 1);
     if (FR_OK != fr) {
+        lcd_clear();
+        lcd_string(" Can not mount SD card.");
         panic("f_mount error: %s (%d)\n", FRESULT_str(fr), fr);
+
+
+
         return -1;
     }
 
-#if 0
-    // test code
-    // read root directory entries
+    // READ ROM File
 
-    DIR dir;
-    FILINFO finfo;
-//    fr=f_opendir(&dir,"/");
-    fr=f_findfirst(&dir,&finfo,"/","*");
+    fr=f_open(&fdtmp,romfilename,FA_READ);
 
-    printf("%d %s\n\r",finfo.fattrib,finfo.fname);
+    if (FR_OK != fr) {
+        lcd_clear();
+        lcd_string(" Can not read rom file.");
+        panic("f_open error: %s (%d)\n", FRESULT_str(fr), fr);
+        return -1;
+    }
 
-   while(1) {
-        sleep_ms(1000);
-        f_findnext(&dir,&finfo);
-        if(strcmp(finfo.fname,"")) {
-            printf("%d %s\n\r",finfo.fattrib,finfo.fname); 
-        } else {
-            break;
-        }
-   }
+    f_read(&fdtmp,mainram,8192,&bytes_read);
 
-   f_closedir(&dir);
-#endif 
+    // READ Config file
+
+
 
     // Beep & PSG
 
@@ -798,7 +790,6 @@ sleep_ms(1000);
     // irq_set_exclusive_handler(UART0_IRQ,uart_handler);
     // irq_set_enabled(UART0_IRQ,true);
     // uart_set_irq_enables(uart0,true,false);
-
 
 
     multicore_launch_core1(main_core1);   
@@ -824,6 +815,7 @@ sleep_ms(1000);
 
     fdc_check(1);
 
+    display_file();
 
 #ifdef DEBUG
     printf("[Drive1:%x,%x]",fd_drive_status[0],fd_media_type[0]);

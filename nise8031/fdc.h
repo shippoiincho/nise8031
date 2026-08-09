@@ -2,6 +2,8 @@
 #define USE_FATFS
 #define FDC_DEBUG
 
+
+
 #ifdef USE_FATFS
 #include "f_util.h"
 #include "ff.h"
@@ -34,3 +36,4 @@ extern uint32_t fdc_dma_datasize;
 extern uint8_t fdc_interrupt_flag;
 extern uint8_t fdc_tc_flag;
 extern uint8_t fd_media_type[4];
+

@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "pico/stdlib.h"
+
 #include "fdc.h"
 
 uint8_t fdc_command_buffer[10];
@@ -41,6 +43,29 @@ lfs_file_t fd_drive[4];
 uint8_t dummy_buff[1024];
 uint8_t fd_drive_status[4];
 uint8_t fd_media_type[4];   // 0x00:2D,0x10:2DD,0x20:2HD,0x30:1D,0x40:1DD,0x50:1DD for 2DD file
+
+
+#define FDC_ACTIVE_LED1 46
+#define FDC_ACTIVE_KED2 47
+
+void fdc_led_active(uint8_t driveno) {
+
+    if(driveno==0) {
+        gpio_put(FDC_ACTIVE_LED1,true);
+    } else if(driveno==1) {
+        gpio_put(FDC_ACTIVE_KED2,true);
+    }
+    return;
+}
+
+void fdc_led_inactive(uint8_t driveno) {
+
+    gpio_put(FDC_ACTIVE_LED1,false);
+    gpio_put(FDC_ACTIVE_KED2,false);
+
+    return;
+
+}
 
 // D88 track info
 
@@ -315,6 +340,8 @@ void fdc_command_write(uint8_t data) {
                         fdc_result_buffer[5]=fdc_command_buffer[4];
                         fdc_result_buffer[6]=fdc_command_buffer[5];
 
+                        fdc_led_inactive(fdc_command_drive);
+
                     } else {
                         fdc_command_buffer[4]++;
 
@@ -340,6 +367,8 @@ void fdc_command_write(uint8_t data) {
                             fdc_result_buffer[6]=fdc_command_buffer[5];
 
                             fdc_interrupt_flag=1;
+
+                            fdc_led_inactive(fdc_command_drive);
 
                             return;
                         }
@@ -486,6 +515,9 @@ void fdc_command_write(uint8_t data) {
                     fdc_interrupt_flag=1;
                     fdc_write_count=0;
                     fdc_sector_not_found=0;
+
+                    fdc_led_active(fdc_command_buffer[1]&3);
+
                 }
 
                 return;
@@ -555,6 +587,9 @@ void fdc_command_write(uint8_t data) {
                     fdc_interrupt_flag=1;
                     fdc_read_count=0;
                     fdc_sector_not_found=0;
+
+                    fdc_led_active(fdc_command_buffer[1]&3);
+
                 }
 
                 return;
@@ -654,6 +689,7 @@ uint8_t fdc_command_read() {
         if(fdc_command_read_length<=fdc_command_read_index) {
             fdc_phase_flag=0;
             fdc_command_read_index=0;
+            fdc_led_inactive(fdc_command_buffer[1]&3);
         }
         // printf("[!%x:%d/%d]",result,fdc_command_read_index,fdc_command_read_length);
         return result;
@@ -759,7 +795,9 @@ void fdc_tc() {
         fdc_result_buffer[4]=fdc_command_buffer[3];
         fdc_result_buffer[5]=fdc_command_buffer[4];
         fdc_result_buffer[6]=fdc_command_buffer[5];
-        
+
+        fdc_led_inactive(fdc_command_drive);
+
         return;
 
     }
