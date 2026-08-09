@@ -61,9 +61,6 @@ uint32_t interrupt_cycles;
 uint8_t mainram[0x10000];
 uint8_t ioport[0x100];
 
-// PC-8031 ROM address
-uint8_t *mainrom=(uint8_t *)(0x10070000); 
-
 //uint8_t diskbuffer[0x400];
 //unsigned char fd_filename[16];
 

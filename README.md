@@ -10,13 +10,29 @@
 # これはなに
 
 PC-8001/8801 シリーズ用の 5インチフロッピードライブ、PC-8031 シリーズのエミュレータです。
-PC-6001 シリーズでも動くと思います。
+PC-8001mk2SR と PC-6001mk2SR で動作確認しています。
+PC-8801 でも動くと思いますが未確認です。
 
 ---
 # 配線
 
-今回はかなり複雑なので、
+今回はかなり複雑なので配線などは回路図を参照ください。
 
+![schematics 1st](/hardware/nise8031-1st.png)
+![schematics 2nd](/hardware/nise8031-2nd.png)
+
+必要なパーツは以下の通りです。
+
+- WeAct RP2350B Core Board
+- [microSD DIP 化基板](https://akizukidenshi.com/catalog/g/g105488/)
+- [AQM1602Y-RN-GBW](https://akizukidenshi.com/catalog/g/g111916/)
+- アクセスランプ用 LED (3mm でも 5mm でもOK)
+- ロータリーエンコーダ (SW 付き)
+- 抵抗 1K/10K
+- アンフェノールコネクタ 34Pin
+- ピンヘッダ＆ソケット(基板間接続用)
+
+電源供給は、Pico の USB 端子を想定しています。
 
 ---
 # ROM など
@@ -25,24 +41,14 @@ PC-6001 シリーズでも動くと思います。
 
 PC-80S31 (2KiB) および、PC-8801MA (8KiB) の disk.rom での動作を確認しています。
 
-ROM ファイルを Pico に置きます。
+ROM ファイルを `disk.rom` というファイル名で、SD カードのルートディレクトリに置いてください。
 
-picotool を使う場合は、以下の通りで行けると思います。
-(picotool は pico-sdk に含まれています)
-
-```
-$ picotool load -v -x disk.rom -t bin -o 0x10070000
-```
-
-ROM を書き込んだのちに `prebuild` ディレクトリ以下にある uf2 ファイルを書き込むと起動します。
 
 ---
 # ディスクイメージ
 
 エミュレータでよく使用される D88 フォーマットファイルを使用します。
 microSD カード上に D88 ファイルを置いておきます。
-
-
 
 ---
 # 制限事項
