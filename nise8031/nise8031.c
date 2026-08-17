@@ -44,9 +44,15 @@
 #include "lcd.h"
 
 #define RESET_PIN 25
+#define RE_SW   42
+#define RE_A    44
+#define RE_B    45
+#define LCD_SDA 40
+#define LCD_SCL 41
 
 struct repeating_timer timer,timer2;
 
+// WAIT cycles to interrupt
 #define FDC_INTERRUPT_INTERVAL 100
 
 // PC configuration
@@ -61,16 +67,31 @@ uint32_t interrupt_cycles;
 uint8_t mainram[0x10000];
 uint8_t ioport[0x100];
 
-//uint8_t diskbuffer[0x400];
-//unsigned char fd_filename[16];
+volatile uint32_t timer_count;
+struct repeating_timer timer;
 
 volatile uint8_t fdu_init=0;
 
 // UI
 
-volatile uint32_t menumode=0;
+#define RE_DELAY 2
+#define MENU_TIMEOUT 5000;
+uint32_t re_a_count;
+uint32_t re_b_count;
+uint32_t re_sw_count;
+bool re_a_state=true;
+bool re_b_state=true;
+bool re_sw_state=true;
+
+volatile uint32_t menumode=0;   // 0:normal 1:select drive 2:select file
+volatile uint32_t menucount=0;
+
 uint32_t menuitem=0;
 
+unsigned char lcd_line1[255];
+unsigned char lcd_line2[255];
+unsigned char lcd_prompt1=0x20;
+unsigned char lcd_prompt2=0x20;
 
 //unsigned char filename[16];
 //unsigned char tape_filename[16];
@@ -83,12 +104,25 @@ uint32_t menuitem=0;
 
 volatile uint8_t disk_change=0;
 
-//
-
+// PC-8031 ROM filename
 const uint8_t romfilename[]="disk.rom";
 
+// config file to mount
+// directory1
+// filename2
+// directory2
+// filename2
+const uint8_t configfile[]="config.txt";
+
+uint8_t fd_directory1[256];
+uint8_t fd_directory2[256];
+uint8_t fd_filename1[256];
+uint8_t fd_filename2[256];
+uint8_t fd_filename[256];
+uint8_t fd_menu_drive=0;
+
 const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
-//const uint8_t testfilename2[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
+const uint8_t testfilename3[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
 
 //const uint8_t testfilename[]="pc-6601sr-utility_scp.d88";   // 2DD media for 1DD (Type 0x10)
 //const uint8_t testfilename[]="FM Music Exercises (SR).d88"; // 1DD (Type 0x40)
@@ -96,7 +130,7 @@ const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001m
 
 const uint8_t testfilename2[]="newdisk.d88";
 
-//const uint8_t configfile[]="config.txt";
+
 
 // FatFS configuration
 
@@ -137,6 +171,130 @@ sd_card_t* sd_get_by_num(size_t num) {
     }
 }
 
+//
+//  Timer
+
+bool __not_in_flash_func(timer_handler)(struct repeating_timer *t) {
+
+    timer_count++;
+
+    return true;
+}
+
+
+// Rotary Encoder interrupts
+// GPIO IRQ
+
+void __not_in_flash_func(irq_callback)(uint gpio,uint32_t event) {
+
+    bool resw,rea,reb;
+
+    switch(gpio) {
+
+        case RE_A:
+
+//            gpio_acknowledge_irq(RE_A,event);
+//            gpio_acknowledge_irq(RE_A,GPIO_IRQ_EDGE_FALL);
+            
+            rea=gpio_get(RE_A);
+            reb=gpio_get(RE_B);
+
+            sleep_us(10);
+
+            if((rea!=gpio_get(RE_A))||(reb!=gpio_get(RE_B))) {
+                return;
+            }
+
+            if(gpio_get(RE_A) ^ gpio_get(RE_B)) {
+                printf("[RE+]");
+            } else {
+            printf("[RE-]");
+            }
+
+            return;
+
+        case RE_SW:
+
+//            gpio_acknowledge_irq(RE_SW,GPIO_IRQ_EDGE_FALL);
+
+            resw=gpio_get(RE_SW);
+            sleep_us(100);
+            if(resw!=gpio_get(RE_SW)) {
+                return;
+            }
+
+            printf("[SW:on]");
+
+            return;
+
+
+        default:
+            return;
+
+    }
+
+}
+
+uint8_t encoder_check() {
+
+    uint8_t val;
+
+    val=0;
+
+    // check SW
+
+    if(re_sw_state!=gpio_get(RE_SW)) {
+        if((timer_count-re_sw_count)>RE_DELAY) {
+            if(re_sw_state==true) { // Falling
+                printf("[SW:on]");
+                val=1;
+            }
+            re_sw_state=!re_sw_state;
+        }
+    } else {
+        re_sw_count=timer_count;
+    }
+
+    // check RE
+
+    if(re_a_state!=gpio_get(RE_A)) {
+        if((timer_count-re_a_count)>RE_DELAY) {
+            if(re_a_state==false) {
+                if(re_b_state==true) {
+                    printf("[RE:+]");
+                    val|=4;
+                } else {
+                    printf("[RE:-]");
+                    val|=2;
+                }
+            }   // EC11 encoder make 1 pluse for 1 click
+            // else {
+            //     if(re_b_state==false) {
+            //         printf("[RE:+]");
+            //     } else {
+            //         printf("[RE:-]");
+            //     }                
+            // }
+
+            re_a_state=!re_a_state;
+        }
+    } else {
+        re_a_count=timer_count;
+    }
+
+    if(re_b_state!=gpio_get(RE_B)) {
+        if((timer_count-re_b_count)>RE_DELAY) {
+            re_b_state=!re_b_state;
+        }
+    } else {
+        re_b_count=timer_count;
+    }
+
+    return val;
+
+}
+
+
 
 //
 //  reset
@@ -161,13 +319,15 @@ void __not_in_flash_func(z80reset)(uint gpio,uint32_t event) {
 
 }
 
+//
+
 void display_init(void) {
 
     i2c_init(i2c_default, 100 * 1000);
-    gpio_set_function(40, GPIO_FUNC_I2C);
-    gpio_set_function(41, GPIO_FUNC_I2C);
-    gpio_pull_up(40);
-    gpio_pull_up(41);
+    gpio_set_function(LCD_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(LCD_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(LCD_SDA);
+    gpio_pull_up(LCD_SCL);
 
     lcd_init();
 
@@ -194,6 +354,108 @@ void display_file(void) {
     return;
 
 }
+
+// get number of entries
+
+int32_t get_directory(uint8_t *directory,uint8_t *filename) {
+
+    DIR dir;
+    FILINFO finfo;
+    int32_t numfiles;
+    FRESULT fr;
+
+    numfiles=0;
+
+    fr=f_findfirst(&dir,&finfo,directory,"*");
+
+    if(fr!=FR_OK) {
+        return -1;
+    }
+
+    printf("%d %s\n\r",finfo.fattrib,finfo.fname);
+
+   while(1) {
+        f_findnext(&dir,&finfo);
+        if(strcmp(finfo.fname,"")) {
+
+            // ignore ROM and config file
+
+            if(strcmp,finfo.fname,romfilename) {
+                continue;
+            }
+            if(strcmp,finfo.fname,configfile) {
+                continue;
+            }
+
+            numfiles++;
+
+            printf("%d %s\n\r",finfo.fattrib,finfo.fname); 
+        } else {
+            break;
+        }
+   }
+
+   f_closedir(&dir);
+
+   return numfiles;
+
+}
+
+//
+
+int32_t get_filename(uint8_t *directory,uint32_t number) {
+
+    DIR dir;
+    FILINFO finfo;
+    FRESULT fr;
+    int32_t numfiles;
+
+    numfiles=0;
+
+    fr=f_findfirst(&dir,&finfo,directory,"*");
+
+    if(fr!=FR_OK) {
+        return -1;
+    }
+
+    printf("%d %s\n\r",finfo.fattrib,finfo.fname);
+
+    while(1) {
+        f_findnext(&dir,&finfo);
+        if(strcmp(finfo.fname,"")) {
+
+            // ignore ROM and config file
+
+            if(strcmp,finfo.fname,romfilename) {
+                continue;
+            }
+            if(strcmp,finfo.fname,configfile) {
+                continue;
+            }
+
+            numfiles++;
+
+            if(numfiles==number) {
+
+            }
+
+
+            printf("%d %s\n\r",finfo.fattrib,finfo.fname); 
+        } else {
+            break;
+        }
+   }
+
+   f_closedir(&dir);
+
+   return numfiles;
+  
+    // return
+    // 0:file
+    // 1:directory
+
+}
+
 
 #if 0
 
@@ -650,6 +912,7 @@ void main_core1(void) {
 
 //    multicore_lockout_victim_init();
 
+//    gpio_set_irq_enabled(RESET_PIN,GPIO_IRQ_EDGE_RISE, true);
     gpio_set_irq_enabled_with_callback(RESET_PIN,GPIO_IRQ_EDGE_RISE,true,z80reset);
 
     // RUN Z80 EMULATION on Core1
@@ -710,10 +973,8 @@ int main() {
 
     uint32_t menuprint=0;
     uint32_t filelist=0;
-    uint32_t subcpu_wait;
     UINT bytes_read;
-
-    static uint32_t hsync_wait,vsync_wait;
+    uint8_t encoder;
 
 //    set_sys_clock_khz(300000 ,true);
 
@@ -732,9 +993,6 @@ int main() {
     gpio_put(47,false);
 
     fdc_init();
-//    disk_change=0;
-
-//sleep_ms(1000);
 
 //  Initialize FatFs
 
@@ -747,8 +1005,6 @@ int main() {
         lcd_set_cursor(0,0);
         lcd_string("Can not mount SD card");
         panic("f_mount error: %s (%d)\n", FRESULT_str(fr), fr);
-
-
 
         return -1;
     }
@@ -767,9 +1023,55 @@ int main() {
 
     f_read(&fdtmp,mainram,8192,&bytes_read);
 
+    f_close(&fdtmp);
+
     // READ Config file
 
+    fr=f_open(&fdtmp,configfile,FA_READ);
 
+    if (FR_OK == fr) {
+        f_read(&fdtmp,mainram,8192,&bytes_read);
+        f_gets(fd_directory1,255,&fdtmp);
+        f_gets(fd_filename1,255,&fdtmp);
+        f_gets(fd_directory2,255,&fdtmp);
+        f_gets(fd_filename2,255,&fdtmp);        
+
+        f_close(&fdtmp);
+
+    } else {
+        // Can not read config file
+
+        strcpy(fd_directory1,"/");
+        strcpy(fd_directory2,"/");
+
+        fd_filename1[0]=0;
+        fd_filename2[0]=0;
+
+    }
+
+    // Initialize Rotary Encoder
+
+    gpio_init(RE_SW);
+    gpio_init(RE_A);
+    gpio_init(RE_B);
+
+    gpio_set_dir(RE_SW,false);
+    gpio_set_dir(RE_A,false);
+    gpio_set_dir(RE_B,false);
+
+    gpio_set_pulls(RE_SW,true,false);
+    gpio_set_pulls(RE_A,true,false);
+    gpio_set_pulls(RE_B,true,false); 
+ 
+//    gpio_set_irq_callback(irq_callback);
+
+//    gpio_set_irq_enabled(RE_A,GPIO_IRQ_EDGE_RISE|GPIO_IRQ_EDGE_FALL,true);
+//    gpio_set_irq_enabled(RE_SW,GPIO_IRQ_EDGE_FALL,true);
+
+//    irq_set_enabled(IO_IRQ_BANK0,true);
+
+    // timer (1 msec)
+    add_repeating_timer_us(1000,timer_handler,NULL  ,&timer);
 
     // Beep & PSG
 
@@ -784,15 +1086,11 @@ int main() {
     pwm_set_enabled(pwm_slice_num, true);
 #endif
 
-// uart handler
-
-    // irq_set_exclusive_handler(UART0_IRQ,uart_handler);
-    // irq_set_enabled(UART0_IRQ,true);
-    // uart_set_irq_enables(uart0,true,false);
-
-
     multicore_launch_core1(main_core1);   
 //    multicore_lockout_victim_init();
+
+//  Image file mount
+
 
 // TEST TEST TEST
 
@@ -823,10 +1121,61 @@ int main() {
 
     sleep_ms(1);
 
-    menumode=1;  // Pause emulator
+    menumode=0;  // Pause emulator
+
+    uint32_t toggletest=0;
 
     while(1){
-          tight_loop_contents(); 
+#if 0
+//        encoder_check();
+        if(menumode==0) {
+            // Stable => Drive Select
+            if(encoder_check()&1) {
+                menumode=1;
+                menucount=timer_count;
+//                fd_drive_selected=0;
+//              get_directory();
+//              get_file_number();                
+            }
+        } else if (menumode==1) {
+            // Timeout
+                if((timer_count-menu_count)>MENU_TIMEOUT) {
+                    menumode=0;
+//                  refresh_display();
+                }
+                
+                encoder=encoder_check();
+
+        }
+#endif
+        if(encoder_check()&1) {
+            // change disk
+            fd_drive_status[0]=0;
+
+            if(fd_drive[0]!=NULL) {
+                f_close(fd_drive[0]);
+            }
+
+            toggletest++;
+
+            if(toggletest%2) {
+                printf("[Mount:%s]",testfilename3);
+                fr=f_open(fd_drive[0],testfilename3,FA_READ);
+            } else {
+                printf("[Mount:%s]",testfilename);
+                fr=f_open(fd_drive[0],testfilename,FA_READ);            
+            }
+
+            if (FR_OK != fr) {
+                panic("f_open error: %s (%d)\n", FRESULT_str(fr), fr);
+                return -1;
+            }
+
+            fdc_check(0);
+
+        }
+
+//          tight_loop_contents(); 
     }
 
 }

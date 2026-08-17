@@ -47,6 +47,7 @@ uint8_t fd_media_type[4];   // 0x00:2D,0x10:2DD,0x20:2HD,0x30:1D,0x40:1DD,0x50:1
 
 #define FDC_ACTIVE_LED1 46
 #define FDC_ACTIVE_KED2 47
+#define FDC_LED_DELAY 100
 
 void fdc_led_active(uint8_t driveno) {
 
@@ -605,6 +606,10 @@ void fdc_command_write(uint8_t data) {
 
                 fdc_interrupt_flag=1;
 
+                fdc_led_active(fdc_command_buffer[1]&3);
+                sleep_us(FDC_LED_DELAY);
+                fdc_led_inactive(fdc_command_buffer[1]&3);
+
                 return;
 
             case 0x8: // SENSE INTERRUPT STATUS
@@ -643,6 +648,10 @@ void fdc_command_write(uint8_t data) {
                 fdc_write_count=0;
                 fdc_sector_not_found=0;
 
+                fdc_led_active(fdc_command_buffer[1]&3);
+                sleep_us(FDC_LED_DELAY);
+                fdc_led_inactive(fdc_command_buffer[1]&3);
+
                 return;
 
 
@@ -656,6 +665,10 @@ void fdc_command_write(uint8_t data) {
                 fdc_phase_flag=0;
 
                 fdc_interrupt_flag=1;
+
+                fdc_led_active(fdc_command_buffer[1]&3);
+                sleep_us(FDC_LED_DELAY);
+                fdc_led_inactive(fdc_command_buffer[1]&3);
 
                 return;
 

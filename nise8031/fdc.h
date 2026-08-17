@@ -1,6 +1,6 @@
 // USE FatFS or LittleFS
 #define USE_FATFS
-#define FDC_DEBUG
+//#define FDC_DEBUG
 
 
 
