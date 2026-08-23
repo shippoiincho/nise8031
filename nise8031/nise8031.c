@@ -18,7 +18,8 @@
 // GP46: Access LED1 
 // GP47: Access LED2
 
-// #define USE_DEBUG
+// DEBUG control
+//#define USE_DEBUG
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1024,6 +1025,10 @@ int main() {
     f_read(&fdtmp,mainram,8192,&bytes_read);
 
     f_close(&fdtmp);
+
+    // Overwrite drive type (for pseudo bios)
+
+    mainram[0x7ef]=0xef;
 
     // READ Config file
 
