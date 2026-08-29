@@ -44,8 +44,8 @@ PC-8801 でも動くと思いますが未確認です。
 PC-80S31 (2KiB) および、PC-8801MA (8KiB) の disk.rom での動作を確認しています。
 ROM ファイルを `disk.rom` というファイル名で、SD カードのルートディレクトリに置いてください。
 
-[PC-8801 エミュレータ M88 用の pseudo bios ](http://retropc.net/cisc/m88/download.html)にも対応しましたので、
-PC-8031 シリーズ実機の ROM がなくても動作します。
+[PC-8801 エミュレータ M88 用の pseudo bios ](http://retropc.net/cisc/m88/download.html)にも対応しました。
+2D メディア専用ですが、PC-8031 シリーズ実機の ROM がなくても動作します。
 
 ---
 # ディスクイメージ
