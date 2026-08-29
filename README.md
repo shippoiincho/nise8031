@@ -1,4 +1,7 @@
 # PC-8031 Emulator 偽8031
+
+![board](/pictures/nise8031c.png)
+
 ---
 # Work in progress
 
@@ -39,7 +42,7 @@ PC-8801 でも動くと思いますが未確認です。
 
 完成すると以下のようになるかと思います。
 
-![board 2ns](/pictures/nise8031a.jpg)
+![board 2nd](/pictures/nise8031a.jpg)
 ![board 1st](/pictures/nise8031b.jpg)
 
 ---
