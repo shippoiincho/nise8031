@@ -92,19 +92,10 @@ uint32_t numitems=0;
 uint32_t menuselected=0;
 uint32_t menudrive=1;
 
-unsigned char lcd_line1[255];
-unsigned char lcd_line2[255];
+unsigned char lcd_line1[256];
+unsigned char lcd_line2[256];
 unsigned char lcd_prompt1=0x20;
 unsigned char lcd_prompt2=0x20;
-
-//unsigned char filename[16];
-//unsigned char tape_filename[16];
-//unsigned char rampac_filename[16];
-
-//static inline unsigned char tohex(int);
-//static inline unsigned char fromhex(int);
-//static inline void video_print(uint8_t *);
-//uint8_t fdc_find_sector(void);
 
 volatile uint8_t disk_change=0;
 
@@ -124,17 +115,6 @@ uint8_t fd_filename1[256];
 uint8_t fd_filename2[256];
 uint8_t fd_filename[256];
 uint8_t fd_menu_drive=0;
-
-#if 0
-const uint8_t testfilename[]="[OS] N80SR BASIC system disk (PC-8037SR) (PC-8001mkIISR).d88";
-const uint8_t testfilename3[]="[OS] N80 BASIC system disk (PC-8001mkII).d88";
-
-//const uint8_t testfilename[]="pc-6601sr-utility_scp.d88";   // 2DD media for 1DD (Type 0x10)
-//const uint8_t testfilename[]="FM Music Exercises (SR).d88"; // 1DD (Type 0x40)
-//const uint8_t testfilename[]="[Utility] PC-6601 Utility Disk.d88"; // 2D media for 1D (Type 0x00)
-
-const uint8_t testfilename2[]="newdisk.d88";
-#endif
 
 // FatFS configuration
 
@@ -250,7 +230,9 @@ uint8_t encoder_check() {
     if(re_sw_state!=gpio_get(RE_SW)) {
         if((timer_count-re_sw_count)>RE_DELAY) {
             if(re_sw_state==true) { // Falling
+#ifdef DEBUG
                 printf("[SW:on]");
+#endif
                 val=1;
             }
             re_sw_state=!re_sw_state;
@@ -265,10 +247,14 @@ uint8_t encoder_check() {
         if((timer_count-re_a_count)>RE_DELAY) {
             if(re_a_state==false) {
                 if(re_b_state==true) {
+#ifdef DEBUG
                     printf("[RE:+]");
+#endif
                     val|=4;
                 } else {
+#ifdef DEBUG
                     printf("[RE:-]");
+#endif
                     val|=2;
                 }
             }   // EC11 encoder make 1 pluse for 1 click
@@ -437,12 +423,12 @@ int32_t get_filename(uint8_t *directory,uint32_t number) {
     numfiles=0;
 
     if(number==0) {
-        strcpy(fd_filename,"[..]");
+        strcpy(fd_filename,"..");
         return AM_DIR;
     }
 
     if(number==numitems+1) {
-        strcpy(fd_filename,"[UNMOUNT]");
+        strcpy(fd_filename,"UNMOUNT");
         return 255;
     }
 
@@ -477,11 +463,10 @@ int32_t get_filename(uint8_t *directory,uint32_t number) {
 
             numfiles++;
             if(numfiles==number) {
+                sprintf(fd_filename,"%s",finfo.fname);
                 if(finfo.fattrib&AM_DIR) {
-                    sprintf(fd_filename,"[%s]",finfo.fname);
                     return AM_DIR;
                 } else {
-                    sprintf(fd_filename,"%s",finfo.fname);
                     return 0;
                 }
             }
@@ -774,6 +759,8 @@ int main() {
     UINT bytes_read;
     uint8_t encoder;
     unsigned char filename[256];
+    unsigned char dirname[256];
+    int32_t ftype;
 
 //    set_sys_clock_khz(300000 ,true);
 
@@ -897,30 +884,30 @@ int main() {
     strcpy(lcd_line1,"[EMPTY]");
     if(fd_filename1[0]!=0) {
         if(strcmp(fd_directory1,"/")==0) {
-            snprintf(filename,254,"%s",fd_filename1);
+            snprintf(filename,255,"%s",fd_filename1);
         } else {
-            snprintf(filename,254,"%s/%s",fd_directory1,fd_filename1);
+            snprintf(filename,255,"%s/%s",fd_directory1,fd_filename1);
         }
         fr=f_open(fd_drive[0],filename,FA_READ);
 
         if (FR_OK == fr) {
             fdc_check(0);
-            strncpy(lcd_line1,fd_filename1,254);            
+            strncpy(lcd_line1,fd_filename1,255);            
         }
     }
 
     strcpy(lcd_line2,"[EMPTY]");
     if(fd_filename2[0]!=0) {
         if(strcmp(fd_directory2,"/")==0) {
-            snprintf(filename,254,"%s",fd_filename2);
+            snprintf(filename,255,"%s",fd_filename2);
         } else {
-            snprintf(filename,254,"%s/%s",fd_directory2,fd_filename2);
+            snprintf(filename,255,"%s/%s",fd_directory2,fd_filename2);
         }
         fr=f_open(fd_drive[1],filename,FA_READ);
 
         if (FR_OK == fr) {
             fdc_check(1);
-            strncpy(lcd_line2,fd_filename2,254);            
+            strncpy(lcd_line2,fd_filename2,255);            
         }
     }    
 
@@ -960,12 +947,20 @@ int main() {
                         // find file entry if image was mounted
                         if(menudrive==1) {
                             numitems=get_directory(fd_directory1,fd_filename1);
-                            get_filename(fd_directory1,menuselected);
-                            strncpy(lcd_line1,fd_filename,254);
+                            ftype=get_filename(fd_directory1,menuselected);
+                            if(ftype==0) {
+                                strncpy(lcd_line1,fd_filename,255); 
+                            } else {
+                                snprintf(lcd_line1,255,"[%s]",fd_filename);
+                            }
                         }   else {
-                            numitems=get_directory(fd_directory2,fd_filename2);
-                            get_filename(fd_directory2,menuselected);
-                            strncpy(lcd_line2,fd_filename,254);                                                        
+                            numitems=get_directory(fd_directory2,fd_filename2);                            
+                            ftype=get_filename(fd_directory2,menuselected);
+                            if(ftype==0) {
+                                strncpy(lcd_line2,fd_filename,255); 
+                            } else {
+                                snprintf(lcd_line2,255,"[%s]",fd_filename);
+                            }                                                        
                         }                      
 //                    } 
 
@@ -991,7 +986,7 @@ int main() {
 
                 if(encoder&1) {
                     // file select
-                    int32_t ftype;
+
                     if(menudrive==1) {
                         ftype=get_filename(fd_directory1,menuselected);
                     } else {
@@ -1013,8 +1008,8 @@ int main() {
                                 break;
                             }
                             fdc_check(0);
-                            strncpy(fd_filename1,filename,254);                            
-                            strncpy(lcd_line1,fd_filename1,254);
+                            strncpy(fd_filename1,fd_filename,255);                            
+                            strncpy(lcd_line1,fd_filename1,255);
                             menumode=0;
                             display_file();
                             break;
@@ -1034,8 +1029,8 @@ int main() {
                                 break;
                             }
                             fdc_check(1);
-                            strncpy(fd_filename2,filename,254);                            
-                            strncpy(lcd_line2,fd_filename2,254);
+                            strncpy(fd_filename2,fd_filename,255);                            
+                            strncpy(lcd_line2,fd_filename2,255);
                             menumode=0;
                             display_file();
                             break;
@@ -1043,6 +1038,43 @@ int main() {
 
                     } else {
                         // change directory
+                        if(menuselected==0) {
+                            // UP dir
+                        } else if (menuselected==numitems+1) {
+                            // Unmount
+
+                        } else {
+                            // Down dir
+                            if(menudrive==1) {
+                                if(strcmp(fd_directory1,"/")==0) {
+                                    snprintf(dirname,255,"/%s",fd_filename);
+                                } else {
+                                    snprintf(dirname,255,"%s/%s",fd_directory1,fd_filename);
+                                }
+                                strncpy(fd_directory1,dirname,255);
+                                numitems=get_directory(fd_directory1,"");
+                                printf("[%s:%d]\n\r",fd_directory1,numitems);
+                                menuselected=0;
+                                get_filename(fd_directory1,menuselected);
+                                strncpy(lcd_line1,fd_filename,255);                        
+                            } else {
+                                if(strcmp(fd_directory2,"/")==0) {
+                                    snprintf(dirname,255,"/%s",fd_filename);
+                                } else {
+                                    snprintf(dirname,255,"%s/%s",fd_directory2,fd_filename);
+                                }
+                                strncpy(fd_directory2,dirname,255);
+                                numitems=get_directory(fd_directory2,"");
+                                printf("[%s:%d]\n\r",fd_directory2,numitems);
+                                menuselected=0;
+                                get_filename(fd_directory2,menuselected);
+                                strncpy(lcd_line2,fd_filename,255);  
+                            }
+ 
+                            display_file();
+
+                        }
+
                     }
                 }
 
@@ -1051,23 +1083,35 @@ int main() {
 
                     if(encoder&2) {
                         menuselected++;
-                        if(menuselected>numitems) {
+                        if(menuselected>numitems+1) {
                             menuselected=0;
                         }
                     } else {
                         if(menuselected>0) {
                             menuselected--;
                         } else {
-                            menuselected=numitems;
+                            menuselected=numitems+1;
                         }
                     }
+#ifdef DEBUG
                     printf("[%d]",menuselected);
+#endif
                     if(menudrive==1) {
-                        get_filename(fd_directory1,menuselected);
-                        strncpy(lcd_line1,fd_filename,254); 
+                        ftype=get_filename(fd_directory1,menuselected);
+                        if(ftype==0) {
+                            strncpy(lcd_line1,fd_filename,255); 
+                        } else {
+                            snprintf(lcd_line1,255,"[%s]",fd_filename);
+                        }
+
                     } else {
-                        get_filename(fd_directory2,menuselected);
-                        strncpy(lcd_line2,fd_filename,254); 
+                        ftype=get_filename(fd_directory2,menuselected);
+                        if(ftype==0) {
+                            strncpy(lcd_line2,fd_filename,255); 
+                        } else {
+                            snprintf(lcd_line2,255,"[%s]",fd_filename);                            
+                        }
+
                     }
   
                     display_file();
@@ -1084,44 +1128,19 @@ int main() {
 
         if((menumode!=0)&&((timer_count-menucount)>MENU_TIMEOUT)) {
             menumode=0;
-            strncpy(lcd_line1,fd_filename1,254); 
-            strncpy(lcd_line2,fd_filename2,254);             
-            display_file();
-        }
-
-#if 0
-        if(encoder&1) {
-            // change disk
-            fd_drive_status[0]=0;
-
-            if(fd_drive[0]!=NULL) {
-                f_close(fd_drive[0]);
-            }
-
-            toggletest++;
-
-            if(toggletest%2) {
-                printf("[Mount:%s]",testfilename3);
-                fr=f_open(fd_drive[0],testfilename3,FA_READ);
-                strncpy(lcd_line1,testfilename3,254);
+            if(fd_drive_status[0]!=0) {
+                strncpy(lcd_line1,fd_filename1,255); 
             } else {
-                printf("[Mount:%s]",testfilename);
-                fr=f_open(fd_drive[0],testfilename,FA_READ);
-                strncpy(lcd_line1,testfilename,254);            
+                strcpy(lcd_line1,"[EMPTY]");
             }
-
-            if (FR_OK != fr) {
-                panic("f_open error: %s (%d)\n", FRESULT_str(fr), fr);
-                return -1;
+            if(fd_drive_status[1]!=0) {
+                strncpy(lcd_line2,fd_filename2,255); 
+            } else {
+                strcpy(lcd_line2,"[EMPTY]");
             }
-
-            fdc_check(0);
-
+            
             display_file();
-
         }
-#endif
-
 
 //          tight_loop_contents(); 
     }
