@@ -487,6 +487,35 @@ int32_t get_filename(uint8_t *directory,uint32_t number) {
 
 }
 
+void updir(unsigned char *str) {
+
+    int32_t ptr;
+
+    ptr=strlen(str);
+#ifdef DEBUG
+    printf("[%s]->",str);
+#endif
+    if(ptr<1) return;
+
+    while(ptr>0){
+        if(str[ptr]=='/') {
+            str[ptr]=0;
+#ifdef DEBUG
+            printf("[%s]\n\r",str);
+#endif
+            return;
+            
+        }
+        ptr--;
+    }
+
+    strcpy(str,"/");
+
+    return;
+}
+
+
+
 static inline uint8_t mem_read(void *context,uint16_t address)
 {
 
@@ -941,7 +970,7 @@ int main() {
                 if(encoder&1) {
                     menumode=2;
                     menucount=timer_count;
-                    menuselected=0;
+                    menuselected=1;
 
 //                    if(fd_drive[menudrive]!=0) {
                         // find file entry if image was mounted
@@ -999,7 +1028,9 @@ int main() {
                             } else {
                                 snprintf(filename,255,"%s/%s",fd_directory1,fd_filename);
                             }
+#ifdef DEBUG
                             printf("[%s]\n",filename);
+#endif
                             if(fd_drive_status[0]!=0) {
                                 f_close(fd_drive[0]);
                             }
@@ -1020,7 +1051,9 @@ int main() {
                             } else {
                                 snprintf(filename,255,"%s/%s",fd_directory2,fd_filename);
                             }
+#ifdef DEBUG
                             printf("[%s]\n",filename);
+#endif
                             if(fd_drive_status[1]!=0) {
                                 f_close(fd_drive[1]);
                             }
@@ -1040,8 +1073,48 @@ int main() {
                         // change directory
                         if(menuselected==0) {
                             // UP dir
+                            if(menudrive==1) {
+                                updir(fd_directory1);
+                                numitems=get_directory(fd_directory1,"");
+                                menuselected=1;
+                                ftype=get_filename(fd_directory1,menuselected);
+                                if(ftype==0) {
+                                    strncpy(lcd_line1,fd_filename,255); 
+                                } else {
+                                    snprintf(lcd_line1,255,"[%s]",fd_filename);
+                                }                                   
+                            } else {
+                                updir(fd_directory2);
+                                numitems=get_directory(fd_directory2,"");
+                                menuselected=1;
+                                ftype=get_filename(fd_directory2,menuselected);
+                                if(ftype==0) {
+                                    strncpy(lcd_line2,fd_filename,255); 
+                                } else {
+                                    snprintf(lcd_line2,255,"[%s]",fd_filename);
+                                }
+                            }
+
+                            display_file();
+
                         } else if (menuselected==numitems+1) {
                             // Unmount
+                            if(menudrive==1) {
+                                if(fd_drive_status[0]!=0) {
+                                    f_close(fd_drive[0]);
+                                }
+                                fd_drive_status[0]=0;
+                                strcpy(lcd_line1,"[EMPTY]");                                
+                            } else {
+                                if(fd_drive_status[1]!=0) {
+                                    f_close(fd_drive[1]);
+                                }
+                                fd_drive_status[1]=0;
+                                strcpy(lcd_line2,"[EMPTY]"); 
+                            }
+
+                            menumode=0;
+                            display_file();
 
                         } else {
                             // Down dir
@@ -1053,10 +1126,13 @@ int main() {
                                 }
                                 strncpy(fd_directory1,dirname,255);
                                 numitems=get_directory(fd_directory1,"");
-                                printf("[%s:%d]\n\r",fd_directory1,numitems);
-                                menuselected=0;
-                                get_filename(fd_directory1,menuselected);
-                                strncpy(lcd_line1,fd_filename,255);                        
+                                menuselected=1;
+                                ftype=get_filename(fd_directory1,menuselected);
+                                if(ftype==0) {
+                                    strncpy(lcd_line1,fd_filename,255); 
+                                } else {
+                                    snprintf(lcd_line1,255,"[%s]",fd_filename);
+                                }                   
                             } else {
                                 if(strcmp(fd_directory2,"/")==0) {
                                     snprintf(dirname,255,"/%s",fd_filename);
@@ -1065,10 +1141,13 @@ int main() {
                                 }
                                 strncpy(fd_directory2,dirname,255);
                                 numitems=get_directory(fd_directory2,"");
-                                printf("[%s:%d]\n\r",fd_directory2,numitems);
-                                menuselected=0;
-                                get_filename(fd_directory2,menuselected);
-                                strncpy(lcd_line2,fd_filename,255);  
+                                menuselected=1;
+                                ftype=get_filename(fd_directory2,menuselected);
+                                if(ftype==0) {
+                                    strncpy(lcd_line2,fd_filename,255); 
+                                } else {
+                                    snprintf(lcd_line2,255,"[%s]",fd_filename);
+                                }
                             }
  
                             display_file();
