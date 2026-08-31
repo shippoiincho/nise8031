@@ -514,6 +514,27 @@ void updir(unsigned char *str) {
     return;
 }
 
+int32_t saveconfig(void) {
+
+    FRESULT fr;
+
+    fr=f_open(&fdtmp,configfile,FA_READ|FA_WRITE|FA_CREATE_ALWAYS);
+
+    if (FR_OK == fr) {
+        f_printf(&fdtmp,"%s\n",fd_directory1);
+        f_printf(&fdtmp,"%s\n",fd_filename1);
+        f_printf(&fdtmp,"%s\n",fd_directory2);
+        f_printf(&fdtmp,"%s\n",fd_filename2);
+        f_close(&fdtmp);
+
+        return 0;
+    }
+
+    return -1;
+
+
+}
+
 
 
 static inline uint8_t mem_read(void *context,uint16_t address)
@@ -849,11 +870,17 @@ int main() {
     fr=f_open(&fdtmp,configfile,FA_READ);
 
     if (FR_OK == fr) {
-        f_read(&fdtmp,mainram,8192,&bytes_read);
+
         f_gets(fd_directory1,255,&fdtmp);
         f_gets(fd_filename1,255,&fdtmp);
         f_gets(fd_directory2,255,&fdtmp);
         f_gets(fd_filename2,255,&fdtmp);        
+
+        // remove tailing newline
+        fd_directory1[strcspn(fd_directory1, "\r\n")] = 0;
+        fd_filename1[strcspn(fd_filename1, "\r\n")] = 0;
+        fd_directory2[strcspn(fd_directory2, "\r\n")] = 0;
+        fd_filename2[strcspn(fd_filename2, "\r\n")] = 0;
 
         f_close(&fdtmp);
 
@@ -922,6 +949,9 @@ int main() {
         if (FR_OK == fr) {
             fdc_check(0);
             strncpy(lcd_line1,fd_filename1,255);            
+        } else {
+            strcpy(fd_directory1,"/");
+            fd_filename1[0]=0;
         }
     }
 
@@ -937,6 +967,9 @@ int main() {
         if (FR_OK == fr) {
             fdc_check(1);
             strncpy(lcd_line2,fd_filename2,255);            
+        } else {
+            strcpy(fd_directory2,"/");
+            fd_filename2[0]=0;            
         }
     }    
 
@@ -1043,6 +1076,7 @@ int main() {
                             strncpy(lcd_line1,fd_filename1,255);
                             menumode=0;
                             display_file();
+                            saveconfig();
                             break;
 
                         } else {
@@ -1066,6 +1100,7 @@ int main() {
                             strncpy(lcd_line2,fd_filename2,255);
                             menumode=0;
                             display_file();
+                            saveconfig();
                             break;
                         }
 
