@@ -116,6 +116,8 @@ uint8_t fd_filename2[256];
 uint8_t fd_filename[256];
 uint8_t fd_menu_drive=0;
 
+#define PPI_DELAY 50
+
 // FatFS configuration
 
     FATFS fs;
@@ -165,7 +167,7 @@ bool __not_in_flash_func(timer_handler)(struct repeating_timer *t) {
     return true;
 }
 
-
+#if 0
 // Rotary Encoder interrupts
 // GPIO IRQ
 
@@ -218,6 +220,7 @@ void __not_in_flash_func(irq_callback)(uint gpio,uint32_t event) {
     }
 
 }
+#endif
 
 uint8_t encoder_check() {
 
@@ -599,7 +602,8 @@ static inline uint8_t io_read(void *context, uint16_t address)
             gpio_data>>=8;
 
 #ifdef USE_DEBUG
-            if(gpio_data!=0) {
+//            if(gpio_data!=0) {
+            if(gpio_data==0) {
                 printf("[PR:%02x]",gpio_data);
             }
 #endif
@@ -620,7 +624,16 @@ static inline uint8_t io_read(void *context, uint16_t address)
             ioport[0xfe]&=0xf0;
             ioport[0xfe]|=gpio_data;
 
+            sleep_us(PPI_DELAY);
+
+            // if(ppidebug != ioport[0xfe]) {
+            //     printf("[SR:%02x:%04x]",ioport[0xfe],Z80_PC(cpu));
+            // ppidebug=ioport[0xfe];
+            // }
+
+
 #if DEBUG            
+
 if((ioport[0xfe]&0xf)!=0) {
         printf("[SR:%02x]",ioport[0xfe]);
 }
