@@ -40,6 +40,16 @@ PC-8801 でも動くと思いますが未確認です。
 ![board 2nd](/pictures/nise8031a.jpg)
 ![board 1st](/pictures/nise8031b.jpg)
 
+同じく hardware フォルダの中に、ケース用の 3Dプリンタ用データがありますので、必要であればご使用ください。
+このデータは基板間を 20mm のスペーサで保持するように設計されています。
+この場合基板間接続には足の長いソケットを使うとよいと思います。
+(例:https://akizukidenshi.com/catalog/g/g107914/)
+
+---
+# FIRMWARE
+
+`build/nise8031/nise8031.uf2` を Pico のフラッシュに書き込んでください。
+
 ---
 # ROM など
 
