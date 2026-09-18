@@ -1,155 +1,125 @@
-// nise1500 case upper
+// nise8031 case upper
 
 // Bottom Outer
 
+PCBW=1.8;
+PCBS=20;
+SPACE=7.0;
+SHELLW=2.0;
+
+
 difference() {
 
-translate([-50,-30,0]) {    
-cube([100,60,20]);
-}
+translate([-46-SHELLW,-43.5-SHELLW,0]) {    
+cube([92+SHELLW*2,87+SHELLW*2,(SPACE+SHELLW)]);
+};
 
 
-translate([-48,-28,0]) {  
-cube([96,56,18]);
-}
+translate([-46,-43.5,0]) {  
+cube([92,87,SPACE]);
+};
 
-translate([-48,-30,-2]) {       
-cube([96,56,2]);
+// LCD Window
+
+translate([-46+8,-43.5+40,SPACE]) {
     
-}
-
-// VGA
-
-translate([10,25,0]) {
-
-cube([33,10,14]);
-
-}
-
-// LINE OUT
-
-translate([-1,25,0]) {
-
-cube([18,6,8]);
-
-}
-
-// USB 
-
-translate([-29,25,0]) {
-
-cube([12,10,18]);
-
-}
-
-// Button Hole
-
-translate([38.5,3.5,18]) {
-
-cylinder(2,2.5,2.5); 
-
-}
-
-translate([38.5,-10,18]) {
-
-cylinder(2,2.5,2.5); 
-
-}
-
-
-// Mount Hole
-
-translate([-41.5,-23,18]) {
-    
-cylinder(2,3.5,3.5);    
+    cube([52,16,SHELLW]);    
        
 }
 
-translate([41.5,-23,18]) {
+// RE Hole
+
+translate([-46+76,-43.5+46,SPACE]) {
     
-cylinder(2,3.5,3.5);    
+    cylinder(SHELLW,4.5,4.5);  
        
 }
 
+// Upper Holes
+
+translate([-40,-37.5,SPACE]) {
+    
+cylinder(SHELLW,3.5,3.5);    
+       
+}
+
+translate([+40,-37.5,SPACE]) {
+    
+cylinder(SHELLW,3.5,3.5);    
+       
+}
+
+translate([-40,-37.5+55,SPACE]) {
+    
+cylinder(SHELLW,3.5,3.5);    
+       
+}
+
+translate([+40,-37.5+55,SPACE]) {
+    
+cylinder(SHELLW,3.5,3.5);    
+       
+}
 
 }
 
-
-// Upper Hole 1
-
-translate([-41.5,-23,0]) {
+translate([-40,-37.5,0]) {
 
 difference() {
     
-cylinder(4,3.5,3.5);    
+cylinder(SPACE,5.5,5.5);   
+   {
+    cylinder(SHELLW,1.5,1.5);
+        translate([0,0,SHELLW]) {  
+            cylinder(SPACE-SHELLW,3.5,3.5);     
+        }
+    }       
+}
     
-cylinder(4,1.5,1.5);
+};
 
-}
-   
-}
-
-translate([-41.5,-23,0]) {
+translate([+40,-37.5,0]) {
 
 difference() {
     
-cylinder(18,5.5,5.5);    
+cylinder(SPACE,5.5,5.5);   
+   {
+    cylinder(SHELLW,1.5,1.5);
+        translate([0,0,SHELLW]) {  
+            cylinder(SPACE-SHELLW,3.5,3.5);     
+        }
+    }       
+}
     
-cylinder(18,3.5,3.5);
+};
 
-}
-   
-}
-
-
-
-// Upper Hole 2
-
-translate([+41.5,-23,0]) {
+translate([-40,-37.5+55,0]) {
 
 difference() {
+ 
+cylinder(SPACE,5.5,5.5);   
+   {
+    cylinder(SHELLW,1.5,1.5);
+        translate([0,0,SHELLW]) {  
+            cylinder(SPACE-SHELLW,3.5,3.5);     
+        }
+    }       
+} 
+ 
     
-cylinder(4,3.5,3.5);    
-    
-cylinder(4,1.5,1.5);
+};
 
-}
-   
-}
-
-translate([+41.5,-23,0]) {
-
-difference() {
-    
-cylinder(18,5.5,5.5);    
-    
-cylinder(18,3.5,3.5);
-
-}
-   
-}
-
-// Button hole
-
-translate([38.5,3.5,13]) {
+translate([+40,-37.5+55,0]) {
 
 difference() {
 
-cylinder(5,4.5,4.5); 
+cylinder(SPACE,5.5,5.5);   
+   {
+    cylinder(SHELLW,1.5,1.5);
+        translate([0,0,SHELLW]) {  
+            cylinder(SPACE-SHELLW,3.5,3.5);     
+        }
+    }       
+}
     
-cylinder(5,2.5,2.5);     
-}
-
-}
-
-translate([38.5,-10,13]) {
-
-difference() {
-
-cylinder(5,4.5,4.5);    
-
-cylinder(5,2.5,2.5); 
-
-}
-
-}
+};

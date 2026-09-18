@@ -19,6 +19,8 @@ PC-8801 でも動くと思いますが未確認です。
 ![schematics 1st](/hardware/nise8031-1st.png)
 ![schematics 2nd](/hardware/nise8031-2nd.png)
 
+発注に必要な基板データは `hardware` の下にあります。
+
 必要なパーツは以下の通りです。
 
 - WeAct RP2350B Core Board
