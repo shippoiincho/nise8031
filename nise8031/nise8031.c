@@ -957,7 +957,7 @@ int main() {
         } else {
             snprintf(filename,255,"%s/%s",fd_directory1,fd_filename1);
         }
-        fr=f_open(fd_drive[0],filename,FA_READ);
+        fr=f_open(fd_drive[0],filename,FA_READ|FA_WRITE);
 
         if (FR_OK == fr) {
             fdc_check(0);
@@ -975,7 +975,7 @@ int main() {
         } else {
             snprintf(filename,255,"%s/%s",fd_directory2,fd_filename2);
         }
-        fr=f_open(fd_drive[1],filename,FA_READ);
+        fr=f_open(fd_drive[1],filename,FA_READ|FA_WRITE);
 
         if (FR_OK == fr) {
             fdc_check(1);
